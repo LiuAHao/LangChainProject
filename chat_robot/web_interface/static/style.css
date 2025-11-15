@@ -1,0 +1,163 @@
+/* 聊天机器人界面样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: #f5f7fa;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  width: 90%;
+  max-width: 800px;
+  height: 80vh;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  padding: 16px 20px;
+  background: #4a6cf7;
+  color: white;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  font-weight: 600;
+  font-size: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-info {
+  font-size: 14px;
+  font-weight: normal;
+}
+
+.clear-button {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.3s;
+}
+
+.clear-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.chat-history {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  line-height: 1.5;
+  position: relative;
+  word-wrap: break-word;
+}
+
+.user-message {
+  align-self: flex-end;
+  background-color: #e3f2fd;
+  border-bottom-right-radius: 4px;
+}
+
+.assistant-message {
+  align-self: flex-start;
+  background-color: #f0f2f5;
+  border-bottom-left-radius: 4px;
+}
+
+.system-message {
+  align-self: center;
+  background-color: #fff3cd;
+  color: #856404;
+  text-align: center;
+  font-style: italic;
+  margin: 10px auto;
+  max-width: 80%;
+  padding: 8px 16px;
+  border-radius: 18px;
+}
+
+.input-area {
+  display: flex;
+  padding: 16px;
+  background: white;
+  border-top: 1px solid #eaeaea;
+}
+
+#user-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 24px;
+  outline: none;
+  font-size: 16px;
+}
+
+#user-input:focus {
+  border-color: #4a6cf7;
+}
+
+#send-button {
+  margin-left: 12px;
+  padding: 12px 20px;
+  background: #4a6cf7;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#send-button:hover {
+  background: #3a5bf5;
+}
+
+#send-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.loading {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 10px;
+}
+
+/* 滚动条美化 */
+.chat-history::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-history::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.chat-history::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
