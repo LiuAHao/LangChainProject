@@ -14,3 +14,4 @@ langchain-openai
 langchain-community
 pymysql
 jinja2
+cryptography 

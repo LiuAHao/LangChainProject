@@ -3,27 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qwen聊天机器人</title>
+    <title>Qwen AI 聊天助手</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div>Qwen AI 助手</div>
-            <div class="session-info">
-                会话ID: <span id="session-id"></span>
-                <button class="clear-button" id="clear-button">清空记录</button>
+    <div class="app">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-robot"></i>
+                    <span>Qwen AI</span>
+                </div>
+                <button class="new-chat-btn" id="new-chat-btn">
+                    <i class="fas fa-plus"></i>
+                    新对话
+                </button>
+            </div>
+
+            <div class="chat-list" id="chat-list">
+                <!-- 对话列表将在这里动态生成 -->
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="settings-btn" id="settings-btn">
+                    <i class="fas fa-cog"></i>
+                    设置
+                </button>
+                <div class="model-selector">
+                    <select id="model-selector">
+                        <option value="local">本地Qwen</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="deepseek">DeepSeek</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主聊天区域 -->
+        <main class="main-content">
+            <!-- 顶部栏 -->
+            <header class="chat-header">
+                <div class="chat-title" id="current-chat-title">
+                    <span class="title-text">新对话</span>
+                    <div class="persona-badge" id="current-persona-badge">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="current-persona-name">通用助手</span>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-btn" id="persona-btn" title="更换AI人设">
+                        <i class="fas fa-user-edit"></i>
+                    </button>
+                    <button class="action-btn" id="clear-chat-btn" title="清空对话">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="action-btn" id="export-chat-btn" title="导出对话">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- 聊天消息区域 -->
+            <div class="chat-container">
+                <div class="messages-container" id="messages-container">
+                    <div class="welcome-message">
+                        <div class="welcome-icon">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="welcome-text">
+                            <h2>你好！我是 Qwen AI 助手</h2>
+                            <p>我可以帮助你回答问题、编写代码、创意写作等。选择一个人设开始我们的对话吧！</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea
+                        id="user-input"
+                        placeholder="输入消息..."
+                        rows="1"
+                        autocomplete="off"
+                    ></textarea>
+                    <div class="input-actions">
+                        <button class="attach-btn" id="attach-btn" title="上传文件">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+                        <button class="send-btn" id="send-button" title="发送消息">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-info">
+                    <span class="char-count" id="char-count">0 / 4000</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新对话创建弹窗 -->
+    <div class="modal" id="new-chat-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建新对话</h3>
+                <button class="close-btn" id="close-new-chat-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="new-chat-form">
+                    <div class="form-group">
+                        <label for="new-chat-title">对话名称</label>
+                        <input type="text" id="new-chat-title" placeholder="请输入对话名称" maxlength="50">
+                    </div>
+                    <div class="form-section">
+                        <h4>选择AI人设</h4>
+                        <div class="persona-grid" id="new-chat-persona-grid">
+                            <!-- 人设卡片将在这里动态生成 -->
+                        </div>
+                        <div class="create-persona-section">
+                            <h4>创建自定义人设</h4>
+                            <div class="custom-persona-form">
+                                <input type="text" id="custom-persona-name" placeholder="人设名称">
+                                <textarea id="custom-persona-prompt" placeholder="系统提示词（描述AI的人设和行为）" rows="3"></textarea>
+                                <button class="create-btn" id="create-custom-persona">创建人设</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="cancel-btn" id="cancel-new-chat">取消</button>
+                    <button class="confirm-btn" id="confirm-new-chat">创建对话</button>
+                </div>
             </div>
         </div>
-        
-        <div class="chat-history" id="chat-history">
-            <div class="message system-message">你好！我是你的 Qwen AI 助手，有什么我可以帮你的吗？</div>
+    </div>
+
+    <!-- AI人设选择弹窗 -->
+    <div class="modal" id="persona-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择AI人设</h3>
+                <button class="close-btn" id="close-persona-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="persona-grid" id="persona-grid">
+                    <!-- 人设卡片将在这里动态生成 -->
+                </div>
+                <div class="create-persona-section">
+                    <h4>创建自定义人设</h4>
+                    <div class="custom-persona-form">
+                        <input type="text" id="custom-persona-name" placeholder="人设名称">
+                        <textarea id="custom-persona-prompt" placeholder="系统提示词（描述AI的人设和行为）" rows="3"></textarea>
+                        <button class="create-btn" id="create-custom-persona">创建人设</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="输入消息..." autocomplete="off">
-            <button id="send-button">发送</button>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>设置</h3>
+                <button class="close-btn" id="close-settings-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h4>AI模型设置</h4>
+                    <div class="setting-item">
+                        <label>AI提供商:</label>
+                        <select id="ai-provider-select">
+                            <option value="local">本地模型</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="deepseek">DeepSeek</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>模型名称:</label>
+                        <input type="text" id="model-name-input" value="qwen2.5:7b">
+                    </div>
+                    <div class="setting-item">
+                        <label>温度:</label>
+                        <input type="range" id="temperature-slider" min="0" max="1" step="0.1" value="0.7">
+                        <span id="temperature-value">0.7</span>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h4>上下文设置</h4>
+                    <div class="setting-item">
+                        <label>启用上下文压缩:</label>
+                        <input type="checkbox" id="context-compression-toggle" checked>
+                    </div>
+                    <div class="setting-item">
+                        <label>上下文窗口大小:</label>
+                        <input type="number" id="context-window-size" min="5" max="50" value="10">
+                    </div>
+                </div>
+            </div>
         </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div class="loading-indicator" id="loading-indicator" style="display: none;">
+        <div class="loading-spinner"></div>
+        <span>AI正在思考...</span>
     </div>
 
     <script src="/static/script.js"></script>

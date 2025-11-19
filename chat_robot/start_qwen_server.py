@@ -1,4 +1,7 @@
 import os
+import json
+import datetime
+from pathlib import Path
 
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
@@ -15,6 +18,10 @@ app = FastAPI()
 model: Any = None
 tokenizer: Any = None
 device: str = "cpu"
+
+# 日志目录
+log_dir = Path("log")
+log_dir.mkdir(exist_ok=True)
 
 
 class ChatMessage(BaseModel):
@@ -43,6 +50,19 @@ class ChatCompletionResponse(BaseModel):
     choices: list[ChatCompletionChoice]
     usage: dict = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
+
+def _write_log_entry(session_id: str, entry: dict, module: str = "server"):
+    """写入日志条目"""
+    # 创建模块子目录
+    module_dir = log_dir / module
+    module_dir.mkdir(exist_ok=True)
+    log_file = module_dir / f"{session_id}.log"
+    timestamp = datetime.datetime.now().isoformat()
+    entry["timestamp"] = timestamp
+    entry["module"] = module
+    
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 def load_model():
     """加载Qwen模型"""
@@ -74,7 +94,7 @@ def load_model():
         if device == "cuda":
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                torch_dtype=torch.float16,
+                dtype=torch.float16,
                 device_map="auto"
             )
         else:
@@ -109,9 +129,24 @@ async def chat_completions(request: ChatCompletionRequest):
             )]
         )
 
+    # 生成会话ID（使用第一个用户消息作为标识）
+    session_id = "server_session"
+    first_user_msg = next((msg for msg in request.messages if msg.role == "user"), None)
+    if first_user_msg:
+        session_id = f"server_{hash(first_user_msg.content) % 10000}"
+
     try:
         # 构造提示词
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # 记录API请求
+        _write_log_entry(session_id, {
+            "type": "api_request",
+            "model": request.model,
+            "max_tokens": request.max_tokens,
+            "temperature": request.temperature,
+            "messages": messages
+        }, "api")
 
         # 应用聊天模板
         text = tokenizer.apply_chat_template(
@@ -135,6 +170,12 @@ async def chat_completions(request: ChatCompletionRequest):
         ]
 
         response_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        
+        # 记录API响应
+        _write_log_entry(session_id, {
+            "type": "api_response",
+            "response": response_text
+        }, "api")
 
         # 构造响应
         response_message = ChatMessage(role="assistant", content=response_text)
@@ -146,6 +187,12 @@ async def chat_completions(request: ChatCompletionRequest):
         )
     except Exception as e:
         print(f"生成响应时出错: {e}")
+        # 记录错误
+        _write_log_entry(session_id, {
+            "type": "error",
+            "error_type": "response_generation_error",
+            "error_message": str(e)
+        }, "error")
         return ChatCompletionResponse(
             model=request.model,
             choices=[ChatCompletionChoice(
@@ -172,4 +219,11 @@ async def list_models():
 
 if __name__ == "__main__":
     print("启动Qwen模型服务...")
+    # 记录服务启动
+    _write_log_entry("system", {
+        "type": "service_start",
+        "message": "Qwen model service starting"
+    }, "server")
+    # 立即加载模型
+    load_model()
     uvicorn.run(app, host="0.0.0.0", port=8001)

@@ -7,8 +7,6 @@
 
 import os
 import sys
-import subprocess
-import time
 
 def start_web_app():
     """
@@ -18,39 +16,37 @@ def start_web_app():
     print("=" * 50)
     
     # 获取项目根目录
-    project_root = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    # 构建uvicorn命令
-    cmd = [
-        sys.executable, "-m", "uvicorn", 
-        "chat_robot.web_interface.app:app", 
-        "--host", "0.0.0.0", 
-        "--port", "8000",
-        "--reload"
-    ]
+    # 添加项目根目录到Python路径
+    sys.path.insert(0, project_root)
     
-    print("启动命令:", " ".join(cmd))
-    print("工作目录:", project_root)
-    print("=" * 50)
-    print("Web界面将在以下地址可用:")
-    print("http://localhost:8000")
-    print("=" * 50)
-    print("按 Ctrl+C 停止服务")
-    print()
-    
-    process = None
+    # 直接导入并运行Web应用
     try:
-        # 启动Web服务
-        process = subprocess.Popen(cmd, cwd=project_root)
-        process.wait()
-    except KeyboardInterrupt:
-        print("\n正在停止Web服务...")
-        if process:
-            process.terminate()
-            process.wait()
-        print("Web服务已停止")
+        from chat_robot.web_interface.app import app
+        import uvicorn
+        
+        print("启动命令: uvicorn chat_robot.web_interface.app:app --host 0.0.0.0 --port 8000 --reload")
+        print("工作目录:", project_root)
+        print("=" * 50)
+        print("Web界面将在以下地址可用:")
+        print("http://localhost:8000")
+        print("=" * 50)
+        print("按 Ctrl+C 停止服务")
+        print()
+        
+        # 使用uvicorn直接启动Web服务（阻塞方式）
+        uvicorn.run(
+            "chat_robot.web_interface.app:app",
+            host="0.0.0.0",
+            port=8000,
+            reload=True,
+            root_path=project_root
+        )
     except Exception as e:
         print(f"启动Web服务时出错: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     start_web_app()
