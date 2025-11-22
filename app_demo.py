@@ -1,3 +1,5 @@
+# 可以参照此代码进行本地模型私有化部署
+
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
