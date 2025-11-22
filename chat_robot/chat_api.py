@@ -170,7 +170,58 @@ class ChatAPI:
         except Exception as e:
             print(f"生成摘要时出错: {e}")
             return ""
-    
+
+    async def call_api_directly(self, prompt: str, ai_config: Dict[str, Any] = None) -> str:
+        """直接调用AI模型，不保存到数据库（用于系统内部调用）"""
+        try:
+            # 使用提供的配置或默认配置
+            config = ai_config or self.ai_config
+            model_name = self._get_model_name()
+
+            # 构建消息列表
+            messages: List[ChatCompletionMessageParam] = [
+                {"role": "system", "content": "你必须严格扮演以下角色，不得透露自己是AI或语言模型：\n\n你是一个AI助手，请根据用户的需求提供准确、有用的回答。\n\n如果未提供具体人设，你可以自由回答用户的问题。"},
+                {"role": "user", "content": prompt}
+            ]
+
+            # 记录API请求（使用特殊session_id）
+            log_manager.log_api_request(
+                "system_internal",
+                [{"role": msg["role"], "content": msg["content"]} for msg in messages],
+                model_name,
+                config.get("max_tokens", 2000),
+                config.get("temperature", 0.7),
+                "api"
+            )
+
+            # 调用模型
+            response = self.client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                max_tokens=config.get("max_tokens", 2000),
+                temperature=config.get("temperature", 0.7)
+            )
+
+            # 获取模型回复
+            content = response.choices[0].message.content
+            assistant_response = content if content else ""
+
+            # 记录API响应
+            log_manager.log_api_response(
+                "system_internal",
+                assistant_response,
+                response.usage.prompt_tokens if response.usage else 0,
+                response.usage.completion_tokens if response.usage else 0,
+                "api"
+            )
+
+            return assistant_response
+
+        except Exception as e:
+            print(f"直接调用API时出错: {e}")
+            log_manager.log_error("system_internal", "direct_api_call_error", str(e), "api")
+            raise
+
     def chat_with_history(self, session_id: str, user_input: str, persona_id: int = None) -> str:
         """
         带历史记录的聊天

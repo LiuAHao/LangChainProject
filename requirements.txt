@@ -1,6 +1,7 @@
 transformers
 torch
- # 对于CUDA 11.8环境，请运行: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# 如果需要本地跑模型，请下载GPU的torch框架
+# 对于CUDA 11.8环境，请运行: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 # 对于CUDA 12.1环境，请运行: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 # 对于CPU环境，请运行: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # 国内用户可使用镜像源: pip install torch torchvision torchaudio -i https://pypi.tuna.tsinghua.edu.cn/simple/

@@ -78,8 +78,9 @@ body {
   margin-bottom: 4px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.15s ease;
   border: 1px solid transparent;
+  position: relative;
 }
 
 .chat-item:hover {
@@ -91,19 +92,21 @@ body {
   border-color: #10b981;
 }
 
+/* 减少闪烁的优化 */
+.chat-item * {
+  pointer-events: none;
+}
+
+.chat-item button {
+  pointer-events: auto;
+}
+
 .chat-item-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.chat-item-title-container {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
+  align-items: center; /* 垂直居中 */
+  margin-bottom: 6px;
+  gap: 8px; /* 元素之间的间距 */
 }
 
 .chat-item-title {
@@ -112,26 +115,118 @@ body {
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
+  text-overflow: ellipsis; /* 超出显示省略号 */
+  flex: 1; /* 占据可用空间 */
+  min-width: 0; /* 允许文本省略 */
 }
 
 .chat-item-persona-tag {
-  font-size: 11px;
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
-  padding: 2px 6px;
-  border-radius: 10px;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  white-space: nowrap;
-  flex-shrink: 0;
+  font-size: 10px; /* 稍微调小字体更精致 */
+  color: #10b981; /* 绿色文字 */
+  background: rgba(16, 185, 129, 0.15); /* 绿色背景 */
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  white-space: nowrap; /* 标签文字不换行 */
+  flex-shrink: 0;      /* 标签不被挤压，始终完整显示 */
+  height: fit-content;
+  max-width: 30%; /* 限制人设标签最大宽度 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 确保标签内容不会被其他元素影响 */
+  z-index: 1;
+  position: relative;
 }
 
 .chat-item-time {
-  font-size: 12px;
+  font-size: 11px;
   color: #71717a;
-  flex-shrink: 0;
-  margin-left: 8px;
+  flex-shrink: 0; /* 时间不被挤压 */
+  white-space: nowrap;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* 数字显示更清晰的字体 */
+  width: 36px; /* 固定时间显示宽度 */
+  text-align: right;
+}
+
+/* 选中状态下稍微加亮时间 */
+.chat-item.active .chat-item-time {
+  color: #a1a1aa;
+}
+
+/* 删除按钮 */
+.chat-item-delete-btn {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  color: #ef4444;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.chat-item:hover .chat-item-delete-btn {
+  opacity: 0.7;
+}
+
+.chat-item-delete-btn:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* 删除确认弹窗样式 */
+.delete-warning {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.delete-warning i {
+  font-size: 48px;
+  color: #f59e0b;
+  margin-bottom: 16px;
+}
+
+.delete-warning p {
+  margin: 8px 0;
+  color: #e4e4e7;
+}
+
+.delete-warning .warning-text {
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.modal-actions .delete-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-actions .delete-btn:hover {
+  background: #dc2626;
+}
+
+.modal-actions .delete-btn:disabled {
+  background: #374151;
+  color: #6b7280;
+  cursor: not-allowed;
 }
 
 .chat-item-preview {
@@ -711,6 +806,54 @@ body {
 .custom-persona-form textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+.persona-name-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.persona-name-input-group input {
+  flex: 1;
+}
+
+.optimize-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  position: relative;
+}
+
+.optimize-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.optimize-btn:disabled {
+  background: #374151;
+  color: #6b7280;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.optimize-btn.optimizing {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
 }
 
 .create-btn {

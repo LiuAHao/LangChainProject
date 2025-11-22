@@ -128,7 +128,12 @@
                         <div class="create-persona-section">
                             <h4>创建自定义人设</h4>
                             <div class="custom-persona-form">
-                                <input type="text" id="custom-persona-name" placeholder="人设名称">
+                                <div class="persona-name-input-group">
+                                    <input type="text" id="custom-persona-name" placeholder="人设名称">
+                                    <button class="optimize-btn" id="optimize-persona-btn" title="根据人设名称优化描述">
+                                        <i class="fas fa-magic"></i>
+                                    </button>
+                                </div>
                                 <textarea id="custom-persona-prompt" placeholder="系统提示词（描述AI的人设和行为）" rows="3"></textarea>
                                 <button class="create-btn" id="create-custom-persona">创建人设</button>
                             </div>
@@ -159,9 +164,14 @@
                 <div class="create-persona-section">
                     <h4>创建自定义人设</h4>
                     <div class="custom-persona-form">
-                        <input type="text" id="custom-persona-name" placeholder="人设名称">
-                        <textarea id="custom-persona-prompt" placeholder="系统提示词（描述AI的人设和行为）" rows="3"></textarea>
-                        <button class="create-btn" id="create-custom-persona">创建人设</button>
+                        <div class="persona-name-input-group">
+                            <input type="text" id="custom-persona-name-persona-modal" placeholder="人设名称">
+                            <button class="optimize-btn" id="optimize-persona-btn-persona-modal" title="根据人设名称优化描述">
+                                <i class="fas fa-magic"></i>
+                            </button>
+                        </div>
+                        <textarea id="custom-persona-prompt-persona-modal" placeholder="系统提示词（描述AI的人设和行为）" rows="3"></textarea>
+                        <button class="create-btn" id="create-custom-persona-persona-modal">创建人设</button>
                     </div>
                 </div>
             </div>
@@ -179,26 +189,6 @@
             </div>
             <div class="modal-body">
                 <div class="settings-section">
-                    <h4>AI模型设置</h4>
-                    <div class="setting-item">
-                        <label>AI提供商:</label>
-                        <select id="ai-provider-select">
-                            <option value="local">本地模型</option>
-                            <option value="openai">OpenAI</option>
-                            <option value="deepseek">DeepSeek</option>
-                        </select>
-                    </div>
-                    <div class="setting-item">
-                        <label>模型名称:</label>
-                        <input type="text" id="model-name-input" value="qwen2.5:7b">
-                    </div>
-                    <div class="setting-item">
-                        <label>温度:</label>
-                        <input type="range" id="temperature-slider" min="0" max="1" step="0.1" value="0.7">
-                        <span id="temperature-value">0.7</span>
-                    </div>
-                </div>
-                <div class="settings-section">
                     <h4>上下文设置</h4>
                     <div class="setting-item">
                         <label>启用上下文压缩:</label>
@@ -208,6 +198,44 @@
                         <label>上下文窗口大小:</label>
                         <input type="number" id="context-window-size" min="5" max="50" value="10">
                     </div>
+                </div>
+                <div class="settings-section">
+                    <h4>界面设置</h4>
+                    <div class="setting-item">
+                        <label>启用动画效果:</label>
+                        <input type="checkbox" id="enable-animations-toggle" checked>
+                    </div>
+                    <div class="setting-item">
+                        <label>显示时间戳:</label>
+                        <input type="checkbox" id="show-timestamps-toggle" checked>
+                    </div>
+                    <div class="setting-item">
+                        <label>消息最大长度:</label>
+                        <input type="number" id="max-message-length" min="1000" max="10000" value="4000" step="1000">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认删除弹窗 -->
+    <div class="modal" id="confirm-delete-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>确认删除</h3>
+            </div>
+            <div class="modal-body">
+                <div class="delete-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>确定要删除这个会话吗？</p>
+                    <p class="warning-text">此操作不可撤销，会话中的所有消息将被永久删除。</p>
+                </div>
+                <div class="modal-actions">
+                    <button class="cancel-btn" id="cancel-delete">取消</button>
+                    <button class="delete-btn" id="confirm-delete">
+                        <i class="fas fa-trash"></i>
+                        删除会话
+                    </button>
                 </div>
             </div>
         </div>

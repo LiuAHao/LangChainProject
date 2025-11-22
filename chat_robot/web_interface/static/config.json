@@ -1,0 +1,29 @@
+{
+  "ui": {
+    "theme": "dark",
+    "language": "zh-CN",
+    "maxMessageLength": 4000,
+    "autoScroll": true,
+    "showTimestamps": true,
+    "enableAnimations": true
+  },
+  "chat": {
+    "defaultPersona": null,
+    "contextWindowSize": 10,
+    "temperature": 0.7,
+    "enableCompression": true,
+    "streamResponse": true
+  },
+  "features": {
+    "enablePersonaOptimization": true,
+    "enableChatExport": true,
+    "enableSessionManagement": true,
+    "enablePersonaSelection": true
+  },
+  "display": {
+    "sidebarWidth": 260,
+    "messageMaxWidth": 80,
+    "previewMessageCount": 2,
+    "timeFormat": "relative"
+  }
+}

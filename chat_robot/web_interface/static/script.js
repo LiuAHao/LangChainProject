@@ -8,6 +8,7 @@ class ChatApp {
         this.sessions = []; // 明确初始化为空数组
         this.personas = []; // 明确初始化为空数组
         this.messages = [];
+        this.frontendConfig = {}; // 前端配置
         this.settings = {
             aiProvider: 'local',
             modelName: 'qwen2.5:7b',
@@ -18,6 +19,10 @@ class ChatApp {
 
         // 新对话相关状态
         this.selectedPersonaId = null;
+
+        // 删除会话相关状态
+        this.sessionToDelete = null;
+        this.sessionTitleToDelete = null;
 
         console.log('初始状态:', {
             sessions: this.sessions,
@@ -32,6 +37,9 @@ class ChatApp {
         this.bindEvents();
 
         try {
+            console.log('加载前端配置...'); // 调试日志
+            await this.loadFrontendConfig();
+
             console.log('加载人设...'); // 调试日志
             await this.loadPersonas();
             console.log('人设加载完成，数量:', this.personas.length);
@@ -93,12 +101,35 @@ class ChatApp {
         document.getElementById('cancel-new-chat').addEventListener('click', () => this.closeNewChatModal());
         document.getElementById('confirm-new-chat').addEventListener('click', () => this.createNewChat());
 
+        // 人设优化按钮 - 新对话模态框
+        document.getElementById('optimize-persona-btn')?.addEventListener('click', () => {
+            this.optimizePersonaDescription('new-chat');
+        });
+
+        // 添加人设名称实时重复检查
+        document.getElementById('custom-persona-name')?.addEventListener('input', (e) => {
+            this.checkPersonaNameAvailability(e.target.value, 'new-chat');
+        });
+
+        document.getElementById('custom-persona-name-persona-modal')?.addEventListener('input', (e) => {
+            this.checkPersonaNameAvailability(e.target.value, 'persona-modal');
+        });
+
         // 人设选择模态框
         document.getElementById('close-persona-modal').addEventListener('click', () => this.closePersonaModal());
-        document.getElementById('create-custom-persona').addEventListener('click', () => this.createCustomPersona());
+        document.getElementById('create-custom-persona-persona-modal')?.addEventListener('click', () => this.createCustomPersona('persona-modal'));
+
+        // 人设优化按钮 - 人设选择模态框
+        document.getElementById('optimize-persona-btn-persona-modal')?.addEventListener('click', () => {
+            this.optimizePersonaDescription('persona-modal');
+        });
 
         // 设置模态框
         document.getElementById('close-settings-modal').addEventListener('click', () => this.closeSettingsModal());
+
+        // 删除确认模态框
+        document.getElementById('cancel-delete').addEventListener('click', () => this.closeDeleteConfirmModal());
+        document.getElementById('confirm-delete').addEventListener('click', () => this.deleteCurrentSession());
 
         // 点击背景关闭模态框
         document.getElementById('new-chat-modal').addEventListener('click', (e) => {
@@ -110,40 +141,107 @@ class ChatApp {
         document.getElementById('settings-modal').addEventListener('click', (e) => {
             if (e.target.id === 'settings-modal') this.closeSettingsModal();
         });
+        document.getElementById('confirm-delete-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'confirm-delete-modal') this.closeDeleteConfirmModal();
+        });
     }
 
     bindSettingsEvents() {
-        // AI提供商选择
+        // AI提供商选择（侧边栏）
         document.getElementById('model-selector').addEventListener('change', (e) => {
             this.settings.aiProvider = e.target.value;
         });
 
         // 设置模态框中的控件
-        document.getElementById('ai-provider-select').addEventListener('change', (e) => {
-            this.settings.aiProvider = e.target.value;
-            this.saveSettings();
-        });
-
-        document.getElementById('model-name-input').addEventListener('change', (e) => {
-            this.settings.modelName = e.target.value;
-            this.saveSettings();
-        });
-
-        document.getElementById('temperature-slider').addEventListener('input', (e) => {
-            this.settings.temperature = parseFloat(e.target.value);
-            document.getElementById('temperature-value').textContent = e.target.value;
-            this.saveSettings();
-        });
-
         document.getElementById('context-compression-toggle').addEventListener('change', (e) => {
             this.settings.contextCompression = e.target.checked;
-            this.saveSettings();
+            this.updateFrontendConfig({
+                chat: {
+                    enableCompression: e.target.checked
+                }
+            });
         });
 
         document.getElementById('context-window-size').addEventListener('change', (e) => {
             this.settings.contextWindowSize = parseInt(e.target.value);
-            this.saveSettings();
+            this.updateFrontendConfig({
+                chat: {
+                    contextWindowSize: parseInt(e.target.value)
+                }
+            });
         });
+
+        // 界面设置
+        document.getElementById('enable-animations-toggle')?.addEventListener('change', (e) => {
+            this.updateFrontendConfig({
+                ui: {
+                    enableAnimations: e.target.checked
+                }
+            });
+            this.applyAnimationsSetting(e.target.checked);
+        });
+
+        document.getElementById('show-timestamps-toggle')?.addEventListener('change', (e) => {
+            this.updateFrontendConfig({
+                ui: {
+                    showTimestamps: e.target.checked
+                }
+            });
+            this.applyTimestampsSetting(e.target.checked);
+        });
+
+        document.getElementById('max-message-length')?.addEventListener('change', (e) => {
+            const maxLength = parseInt(e.target.value);
+            this.updateFrontendConfig({
+                ui: {
+                    maxMessageLength: maxLength
+                }
+            });
+            this.updateCharCountLimit(maxLength);
+        });
+    }
+
+    async loadFrontendConfig() {
+        try {
+            const response = await fetch('/api/frontend-config');
+            this.frontendConfig = await response.json();
+            console.log('前端配置加载完成:', this.frontendConfig);
+        } catch (error) {
+            console.error('加载前端配置失败:', error);
+            // 使用默认配置
+            this.frontendConfig = {
+                ui: {
+                    maxMessageLength: 4000,
+                    autoScroll: true,
+                    showTimestamps: true
+                },
+                chat: {
+                    contextWindowSize: 10,
+                    temperature: 0.7,
+                    enableCompression: true
+                }
+            };
+        }
+    }
+
+    async updateFrontendConfig(configUpdates) {
+        try {
+            const response = await fetch('/api/frontend-config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configUpdates)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.frontendConfig = data.config;
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('更新前端配置失败:', error);
+            return false;
+        }
     }
 
     async loadPersonas() {
@@ -176,7 +274,7 @@ class ChatApp {
             if (this.sessions.length > 0) {
                 console.log('会话详情:');
                 this.sessions.forEach((session, index) => {
-                    console.log(`  ${index + 1}. Session ID: ${session.session_id}, Title: ${session.title}, Updated: ${session.updated_at}`);
+                    console.log(`  ${index + 1}. Session ID: ${session.session_id}, Title: ${session.title}, Persona ID: ${session.persona_id}, Persona Name: ${session.persona_name}, Updated: ${session.updated_at}`);
                 });
             }
 
@@ -457,30 +555,43 @@ class ChatApp {
         this.sessions.forEach(session => {
             const chatItem = document.createElement('div');
             chatItem.className = `chat-item ${session.session_id === this.currentSessionId ? 'active' : ''}`;
+            chatItem.style.position = 'relative'; // 为删除按钮定位
+
+            // 整个会话项都可以点击切换会话
             chatItem.addEventListener('click', () => this.switchToSession(session.session_id));
 
             const header = document.createElement('div');
             header.className = 'chat-item-header';
 
-            const titleContainer = document.createElement('div');
-            titleContainer.className = 'chat-item-title-container';
-
-            const title = document.createElement('div');
+            // --- 左侧标题 ---
+            const title = document.createElement('span');
             title.className = 'chat-item-title';
-            title.textContent = session.title || '新对话';
+            // 确保标题是字符串类型
+            title.textContent = (session.title && typeof session.title === 'string') ? session.title : '新对话';
 
+            // --- 中间人设标签 ---
+            // 查找人设名称逻辑：先看session里有没有，没有就去personas数组里找
+            let personaName = session.persona_name;
+            if ((!personaName || typeof personaName !== 'string') && session.persona_id) {
+                const personaObj = this.personas.find(p => p.id === session.persona_id);
+                if (personaObj && personaObj.name) personaName = personaObj.name;
+            }
+            
             const persona = document.createElement('span');
             persona.className = 'chat-item-persona-tag';
-            persona.textContent = session.persona_name || '通用助手';
+            // 确保人设名称是字符串类型，并且不是日期字符串
+            persona.textContent = (personaName && typeof personaName === 'string' && !personaName.includes('datetime')) ? personaName : '通用助手';
 
-            titleContainer.appendChild(title);
-            titleContainer.appendChild(persona);
-
+            // --- 右侧时间 ---
             const time = document.createElement('div');
             time.className = 'chat-item-time';
-            time.textContent = this.formatTime(session.updated_at);
+            // 使用 updated_at 或 created_at，根据你的需求
+            const timestamp = session.updated_at || session.created_at;
+            time.textContent = timestamp ? this.formatTime(timestamp) : '';
 
-            header.appendChild(titleContainer);
+            // 确保元素按正确顺序添加
+            header.appendChild(title);
+            header.appendChild(persona);
             header.appendChild(time);
 
             // 获取最近两条消息作为预览
@@ -488,8 +599,19 @@ class ChatApp {
             preview.className = 'chat-item-preview';
             this.loadLastMessagesPreview(session.session_id, preview);
 
+            // 添加删除按钮到右上角
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'chat-item-delete-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.title = '删除会话';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止事件冒泡，防止触发会话切换
+                this.confirmDeleteSession(session.session_id, session.title || '未命名会话');
+            });
+
             chatItem.appendChild(header);
             chatItem.appendChild(preview);
+            chatItem.appendChild(deleteBtn);
             chatList.appendChild(chatItem);
         });
     }
@@ -546,19 +668,28 @@ class ChatApp {
     }
 
     formatTime(timestamp) {
+        if (!timestamp) return '';
         const date = new Date(timestamp);
         const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 1) return '刚刚';
-        if (diffMins < 60) return `${diffMins}分钟前`;
-        if (diffHours < 24) return `${diffHours}小时前`;
-        if (diffDays < 7) return `${diffDays}天前`;
+        // 补零辅助函数
+        const pad = (n) => n.toString().padStart(2, '0');
+        
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
 
-        return date.toLocaleDateString();
+        // 如果是今天的消息，只显示时间 HH:mm
+        if (date.toDateString() === now.toDateString()) {
+            return `${hours}:${minutes}`;
+        }
+        
+        // 否则显示日期 MM-DD
+        // 如果你需要完整的 YYYY-MM-DD HH:mm，可以直接返回:
+        // return `${date.getFullYear()}-${month}-${day} ${hours}:${minutes}`;
+        
+        return `${month}-${day}`;
     }
 
     async switchToSession(sessionId) {
@@ -589,6 +720,14 @@ class ChatApp {
                 if (session.persona_id) {
                     this.currentPersonaId = session.persona_id;
                     console.log('更新当前人设ID:', this.currentPersonaId);
+
+                    // 确保人设名称存在
+                    if (!session.persona_name && session.persona_id) {
+                        const personaObj = this.personas.find(p => p.id === session.persona_id);
+                        if (personaObj) {
+                            session.persona_name = personaObj.name;
+                        }
+                    }
                 }
             }
 
@@ -695,10 +834,26 @@ class ChatApp {
 
                 if (response.ok) {
                     const data = await response.json();
-                    // 更新会话列表中的人设信息
-                    await this.loadSessions();
-                    this.updateChatList();
                     console.log('人设更新成功:', data);
+
+                    // 更新当前会话在sessions数组中的人设信息
+                    const currentSession = this.sessions.find(s => s.session_id === this.currentSessionId);
+                    if (currentSession) {
+                        currentSession.persona_id = personaId;
+                        // 如果返回了persona信息，更新persona_name
+                        if (data.persona) {
+                            currentSession.persona_name = data.persona.name;
+                        } else {
+                            // 如果没有返回persona信息，从personas数组中查找
+                            const personaObj = this.personas.find(p => p.id === personaId);
+                            if (personaObj) {
+                                currentSession.persona_name = personaObj.name;
+                            }
+                        }
+                    }
+
+                    // 直接更新聊天列表，不需要重新加载所有会话
+                    this.updateChatList();
                 } else {
                     const errorData = await response.json();
                     console.error('更新会话人设失败:', errorData.detail);
@@ -715,12 +870,113 @@ class ChatApp {
         this.renderPersonaGrid(); // 更新选中状态
     }
 
-    async createCustomPersona() {
-        const name = document.getElementById('custom-persona-name').value.trim();
-        const prompt = document.getElementById('custom-persona-prompt').value.trim();
+    async optimizePersonaDescription(modalType) {
+        const nameInput = modalType === 'new-chat'
+            ? document.getElementById('custom-persona-name')
+            : document.getElementById('custom-persona-name-persona-modal');
+
+        const optimizeBtn = modalType === 'new-chat'
+            ? document.getElementById('optimize-persona-btn')
+            : document.getElementById('optimize-persona-btn-persona-modal');
+
+        const personaName = nameInput.value.trim();
+
+        if (!personaName) {
+            this.showError('请先输入人设名称');
+            return;
+        }
+
+        // 显示加载状态
+        optimizeBtn.disabled = true;
+        optimizeBtn.classList.add('optimizing');
+        optimizeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        try {
+            const response = await fetch('/api/personas/optimize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: personaName })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success && data.optimized_content) {
+                // 尝试解析JSON格式的优化结果
+                let optimizedData;
+                try {
+                    optimizedData = JSON.parse(data.optimized_content);
+
+                    // 处理system_prompt是对象的情况
+                    if (optimizedData.system_prompt && typeof optimizedData.system_prompt === 'object') {
+                        const promptParts = [];
+                        for (const [key, value] of Object.entries(optimizedData.system_prompt)) {
+                            promptParts.push(`${key}：${value}`);
+                        }
+                        optimizedData.system_prompt = promptParts.join('\n');
+                    }
+                } catch (e) {
+                    console.warn('JSON解析失败，使用原始内容:', e);
+                    // 如果解析失败，将整个内容作为system_prompt
+                    optimizedData = {
+                        description: `优化的人设: ${personaName}`,
+                        system_prompt: data.optimized_content
+                    };
+                }
+
+                // 确保有system_prompt
+                if (!optimizedData.system_prompt) {
+                    optimizedData.system_prompt = `你是${personaName}，一个专业的AI助手。`;
+                }
+
+                // 填充到对应的textarea
+                const promptTextarea = modalType === 'new-chat'
+                    ? document.getElementById('custom-persona-prompt')
+                    : document.getElementById('custom-persona-prompt-persona-modal');
+
+                if (promptTextarea && optimizedData.system_prompt) {
+                    promptTextarea.value = optimizedData.system_prompt;
+                    console.log('优化的人设描述:', optimizedData.system_prompt);
+                }
+
+                this.showSuccess('人设描述优化成功');
+            } else {
+                this.showError('优化失败，请重试');
+            }
+        } catch (error) {
+            console.error('优化人设失败:', error);
+            this.showError('优化人设失败: ' + error.message);
+        } finally {
+            // 恢复按钮状态
+            optimizeBtn.disabled = false;
+            optimizeBtn.classList.remove('optimizing');
+            optimizeBtn.innerHTML = '<i class="fas fa-magic"></i>';
+        }
+    }
+
+  async createCustomPersona(modalType = 'new-chat') {
+        const nameInput = modalType === 'new-chat'
+            ? document.getElementById('custom-persona-name')
+            : document.getElementById('custom-persona-name-persona-modal');
+        const promptTextarea = modalType === 'new-chat'
+            ? document.getElementById('custom-persona-prompt')
+            : document.getElementById('custom-persona-prompt-persona-modal');
+
+        const name = nameInput.value.trim();
+        const prompt = promptTextarea.value.trim();
 
         if (!name || !prompt) {
             this.showError('请填写人设名称和系统提示词');
+            return;
+        }
+
+        // 前端检查是否已存在同名人设
+        const existingPersona = this.personas.find(p => p.name === name);
+        if (existingPersona) {
+            this.showError(`人设名称 "${name}" 已存在，请使用不同的名称`);
             return;
         }
 
@@ -737,12 +993,27 @@ class ChatApp {
 
             if (response.ok) {
                 await this.loadPersonas();
-                document.getElementById('custom-persona-name').value = '';
-                document.getElementById('custom-persona-prompt').value = '';
-                this.renderPersonaGrid();
+                nameInput.value = '';
+                promptTextarea.value = '';
+
+                // 刷新对应的人设网格
+                if (modalType === 'new-chat') {
+                    this.renderNewChatPersonaGrid();
+                } else {
+                    this.renderPersonaGrid();
+                }
+
                 this.showSuccess('人设创建成功');
             } else {
-                this.showError('创建人设失败');
+                // 处理特定的HTTP状态码
+                const errorData = await response.json().catch(() => ({}));
+
+                if (response.status === 409) {
+                    // 409 Conflict - 人设名称已存在
+                    this.showError(errorData.detail || '人设名称已存在，请使用不同的名称');
+                } else {
+                    this.showError(errorData.detail || '创建人设失败');
+                }
             }
         } catch (error) {
             console.error('创建人设失败:', error);
@@ -762,12 +1033,41 @@ class ChatApp {
     }
 
     loadSettingsToModal() {
-        document.getElementById('ai-provider-select').value = this.settings.aiProvider;
-        document.getElementById('model-name-input').value = this.settings.modelName;
-        document.getElementById('temperature-slider').value = this.settings.temperature;
-        document.getElementById('temperature-value').textContent = this.settings.temperature;
-        document.getElementById('context-compression-toggle').checked = this.settings.contextCompression;
-        document.getElementById('context-window-size').value = this.settings.contextWindowSize;
+        // 使用前端配置更新界面
+        if (this.frontendConfig.chat) {
+            document.getElementById('context-compression-toggle').checked = this.frontendConfig.chat.enableCompression !== false;
+            document.getElementById('context-window-size').value = this.frontendConfig.chat.contextWindowSize || 10;
+        }
+
+        if (this.frontendConfig.ui) {
+            document.getElementById('enable-animations-toggle') && (document.getElementById('enable-animations-toggle').checked = this.frontendConfig.ui.enableAnimations !== false);
+            document.getElementById('show-timestamps-toggle') && (document.getElementById('show-timestamps-toggle').checked = this.frontendConfig.ui.showTimestamps !== false);
+            document.getElementById('max-message-length') && (document.getElementById('max-message-length').value = this.frontendConfig.ui.maxMessageLength || 4000);
+        }
+    }
+
+    applyAnimationsSetting(enabled) {
+        if (!enabled) {
+            document.body.style.setProperty('--transition-duration', '0s');
+        } else {
+            document.body.style.removeProperty('--transition-duration');
+        }
+    }
+
+    applyTimestampsSetting(enabled) {
+        const timeElements = document.querySelectorAll('.message-time');
+        timeElements.forEach(element => {
+            element.style.display = enabled ? 'block' : 'none';
+        });
+    }
+
+    updateCharCountLimit(maxLength) {
+        this.charLimit = maxLength;
+        // 更新现有字符计数显示
+        const charCount = document.getElementById('char-count');
+        const input = document.getElementById('user-input');
+        const currentLength = input.value.length;
+        charCount.textContent = `${currentLength} / ${maxLength}`;
     }
 
     async saveSettings() {
@@ -850,6 +1150,173 @@ class ChatApp {
                 toast.parentNode.removeChild(toast);
             }
         }, 2000);
+    }
+
+    // 删除会话相关方法
+    confirmDeleteSession(sessionId, sessionTitle) {
+        this.sessionToDelete = sessionId;
+        this.sessionTitleToDelete = sessionTitle;
+
+        // 更新确认对话框的内容
+        const warningP = document.querySelector('.delete-warning p');
+        if (warningP) {
+            warningP.textContent = `确定要删除会话"${sessionTitle}"吗？`;
+        }
+
+        // 显示确认对话框
+        const modal = document.getElementById('confirm-delete-modal');
+        modal.classList.add('show');
+    }
+
+    closeDeleteConfirmModal() {
+        const modal = document.getElementById('confirm-delete-modal');
+        modal.classList.remove('show');
+        this.sessionToDelete = null;
+        this.sessionTitleToDelete = null;
+    }
+
+    async deleteCurrentSession() {
+        if (!this.sessionToDelete) return;
+
+        const deleteBtn = document.getElementById('confirm-delete');
+        const originalContent = deleteBtn.innerHTML;
+
+        // 显示加载状态
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 删除中...';
+
+        try {
+            const response = await fetch(`/api/session/${this.sessionToDelete}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                this.showSuccess('会话删除成功');
+
+                // 从本地会话列表中移除被删除的会话
+                const sessionIndex = this.sessions.findIndex(s => s.session_id === this.sessionToDelete);
+                const deletedSession = this.sessions[sessionIndex];
+                this.sessions.splice(sessionIndex, 1);
+
+                // 如果删除的是当前会话，需要切换到其他会话
+                if (this.sessionToDelete === this.currentSessionId) {
+                    this.handleCurrentSessionDeletion(deletedSession);
+                }
+
+                // 更新会话列表UI
+                this.updateChatList();
+
+            } else {
+                const errorData = await response.json();
+                this.showError(`删除失败: ${errorData.detail || '未知错误'}`);
+            }
+        } catch (error) {
+            console.error('删除会话失败:', error);
+            this.showError('删除会话失败，请重试');
+        } finally {
+            // 恢复按钮状态
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = originalContent;
+            this.closeDeleteConfirmModal();
+        }
+    }
+
+    handleCurrentSessionDeletion(deletedSession = null) {
+        // 找到其他可用的会话
+        const otherSessions = this.sessions.filter(s => s.session_id !== this.sessionToDelete);
+
+        if (otherSessions.length > 0) {
+            // 切换到第一个其他会话
+            console.log(`切换到其他会话: ${otherSessions[0].session_id}`);
+            this.switchToSession(otherSessions[0].session_id);
+        } else {
+            // 没有其他会话，创建新会话
+            console.log('没有其他会话，准备创建新会话');
+            this.currentSessionId = null;
+            this.currentPersonaId = null;
+            this.messages = [];
+            this.renderMessages();
+            this.updateChatTitle();
+            this.updatePersonaBadge();
+
+            // 延迟一下打开新对话界面，让界面有时间更新
+            setTimeout(() => {
+                this.openNewChatModal();
+            }, 100);
+        }
+    }
+
+    checkPersonaNameAvailability(name, modalType) {
+        const trimmedName = name.trim();
+
+        if (!trimmedName) {
+            // 清除任何提示
+            this.clearPersonaNameWarning(modalType);
+            return;
+        }
+
+        const existingPersona = this.personas.find(p => p.name === trimmedName);
+        const nameInput = modalType === 'new-chat'
+            ? document.getElementById('custom-persona-name')
+            : document.getElementById('custom-persona-name-persona-modal');
+
+        if (existingPersona) {
+            // 显示重复名称警告
+            this.showPersonaNameWarning(modalType, `人设名称 "${trimmedName}" 已存在`);
+            nameInput.style.borderColor = '#ef4444';
+        } else {
+            // 清除警告，显示可用状态
+            this.clearPersonaNameWarning(modalType);
+            nameInput.style.borderColor = '#10b981';
+        }
+    }
+
+    showPersonaNameWarning(modalType, message) {
+        const warningId = modalType === 'new-chat'
+            ? 'persona-name-warning-new-chat'
+            : 'persona-name-warning-persona-modal';
+
+        let warningElement = document.getElementById(warningId);
+
+        if (!warningElement) {
+            warningElement = document.createElement('div');
+            warningElement.id = warningId;
+            warningElement.style.cssText = `
+                color: #ef4444;
+                font-size: 12px;
+                margin-top: 4px;
+                display: block;
+            `;
+
+            const nameInput = modalType === 'new-chat'
+                ? document.getElementById('custom-persona-name')
+                : document.getElementById('custom-persona-name-persona-modal');
+
+            nameInput.parentNode.appendChild(warningElement);
+        }
+
+        warningElement.textContent = message;
+        warningElement.style.display = 'block';
+    }
+
+    clearPersonaNameWarning(modalType) {
+        const warningId = modalType === 'new-chat'
+            ? 'persona-name-warning-new-chat'
+            : 'persona-name-warning-persona-modal';
+
+        const warningElement = document.getElementById(warningId);
+        if (warningElement) {
+            warningElement.style.display = 'none';
+        }
+
+        const nameInput = modalType === 'new-chat'
+            ? document.getElementById('custom-persona-name')
+            : document.getElementById('custom-persona-name-persona-modal');
+
+        if (nameInput) {
+            nameInput.style.borderColor = '';
+        }
     }
 }
 

@@ -103,9 +103,19 @@ async def get_personas():
 async def create_persona(request: PersonaCreateRequest):
     """创建新的AI人设"""
     try:
+        # 首先检查是否已存在同名人设
+        personas = data_manager.get_all_personas()
+        existing_persona = next((p for p in personas if p["name"] == request.name.strip()), None)
+
+        if existing_persona:
+            raise HTTPException(
+                status_code=409,
+                detail=f"人设名称 '{request.name}' 已存在，请使用不同的名称"
+            )
+
         result = data_manager.save_persona(
-            request.name,
-            request.description,
+            request.name.strip(),  # 去除首尾空格
+            request.description or f"自定义人设: {request.name}",
             request.system_prompt,
             request.avatar_url
         )
@@ -113,8 +123,87 @@ async def create_persona(request: PersonaCreateRequest):
             return {"success": True, "message": "人设创建成功"}
         else:
             raise HTTPException(status_code=400, detail="人设创建失败")
+    except HTTPException:
+        # 重新抛出HTTP异常
+        raise
     except Exception as e:
+        # 检查是否是重复键错误
+        if "Duplicate entry" in str(e) and "for key 'ai_personas.name'" in str(e):
+            raise HTTPException(
+                status_code=409,
+                detail=f"人设名称 '{request.name}' 已存在，请使用不同的名称"
+            )
         raise HTTPException(status_code=500, detail=f"创建人设时出错: {str(e)}")
+
+class PersonaOptimizeRequest(BaseModel):
+    name: str
+
+# API路由：优化人设描述
+@app.post("/api/personas/optimize")
+async def optimize_persona(request: PersonaOptimizeRequest):
+    """根据人设名称生成优化的人设描述"""
+    try:
+        from chat_robot.chat_api import ChatAPI
+        temp_chat_api = ChatAPI()
+
+        # 生成优化的提示词
+        optimization_prompt = f"""
+请根据以下人设名称，创建一个详细、专业且富有特色的AI人设描述。要求：
+
+1. 人设名称：{request.name}
+
+请提供：
+1. 一段简洁的人设描述（50-100字）
+2. 详细的系统提示词，包含：
+   - 角色定位
+   - 专业领域
+   - 交流风格
+   - 回答特点
+   - 互动方式
+
+请确保描述具体、专业，避免过于宽泛。
+
+请直接返回JSON格式的结果，注意system_prompt必须是完整的字符串：
+{{
+    "description": "人设描述",
+    "system_prompt": "你是{request.name}，一个具体的AI角色。角色定位：...。专业领域：...。交流风格：...。回答特点：...。互动方式：..."
+}}
+"""
+
+        # 使用临时会话ID生成优化内容，但标记为系统内部使用，不保存到数据库
+        temp_session_id = f"system_optimize_{hash(request.name)}"
+
+        # 直接调用ChatAPI的内部方法，避免保存到数据库
+        try:
+            # 获取AI配置和模型
+            ai_config = config_manager.get_ai_config()
+
+            # 直接调用底层API，不通过chat_with_history方法
+            result = await temp_chat_api._call_api_directly(optimization_prompt, ai_config)
+
+            if result:
+                return {"success": True, "optimized_content": result}
+            else:
+                raise HTTPException(status_code=400, detail="优化人设描述失败")
+
+        except AttributeError:
+            # 如果ChatAPI没有_direct方法，使用临时方法并清理
+            result = temp_chat_api.chat_with_history(temp_session_id, optimization_prompt)
+
+            # 清理临时会话记录
+            try:
+                # 删除临时创建的会话记录
+                data_manager.delete_session(temp_session_id)
+            except:
+                pass  # 如果删除失败也不影响主流程
+
+            if result:
+                return {"success": True, "optimized_content": result}
+            else:
+                raise HTTPException(status_code=400, detail="优化人设描述失败")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"优化人设时出错: {str(e)}")
 
 # API路由：获取所有会话
 @app.get("/api/sessions")
@@ -251,6 +340,50 @@ async def get_settings():
         return config_manager.get_all_config()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取设置时出错: {str(e)}")
+
+# API路由：获取前端配置
+@app.get("/api/frontend-config")
+async def get_frontend_config():
+    """获取前端配置"""
+    try:
+        import json
+        import os
+
+        config_file = os.path.join(os.path.dirname(__file__), "static", "config.json")
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return config
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取前端配置时出错: {str(e)}")
+
+# API路由：更新前端配置
+@app.put("/api/frontend-config")
+async def update_frontend_config(config: Dict[str, Any]):
+    """更新前端配置"""
+    try:
+        import json
+        import os
+
+        config_file = os.path.join(os.path.dirname(__file__), "static", "config.json")
+        with open(config_file, 'r', encoding='utf-8') as f:
+            current_config = json.load(f)
+
+        # 深度合并配置
+        def deep_merge(base, update):
+            for key, value in update.items():
+                if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                    deep_merge(base[key], value)
+                else:
+                    base[key] = value
+
+        deep_merge(current_config, config)
+
+        with open(config_file, 'w', encoding='utf-8') as f:
+            json.dump(current_config, f, ensure_ascii=False, indent=2)
+
+        return {"success": True, "message": "前端配置更新成功", "config": current_config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新前端配置时出错: {str(e)}")
 
 # API路由：获取系统状态
 @app.get("/api/status")

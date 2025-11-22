@@ -1,0 +1,54 @@
+# 环境变量配置参照模版
+
+# 模型开关
+LOCAL_MODEL_ENABLED=false
+OPENAI_API_ENABLED=false
+DEEPSEEK_API_ENABLED=false
+ZHIPU_API_ENABLED=true
+
+# 模型参数
+TEMPERATURE=0.7
+MAX_TOKENS=2000
+
+# 本地模型配置
+LOCAL_MODEL_NAME=""
+LOCAL_MODEL_BASE_URL="http://localhost:8001/v1"
+
+# OpenAI配置
+OPENAI_MODEL=""
+OPENAI_API_KEY=""
+OPENAI_BASE_URL=""
+
+# ZHIPU配置
+ZHIPU_MODEL="GLM-4-Flash"
+ZHIPU_API_KEY=""
+ZHIPU_BASE_URL="https://open.bigmodel.cn/api/paas/v4/"
+
+# DeepSeek配置
+DEEPSEEK_MODEL="deepseek-chat"
+DEEPSEEK_API_KEY=""
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+
+# Gemini配置
+GEMINI_MODEL="gemini-2.5-flash"
+GEMINI_API_KEY=""
+GEMINI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+
+# HuggingFace配置
+HUGGINGFACE_MODEL="deepseek-ai/DeepSeek-R1:novita"
+HUGGINGFACE_API_KEY=""
+HUGGINGFACE_BASE_URL="https://router.huggingface.co/v1"
+
+# 上下文压缩设置
+ENABLE_CONTEXT_COMPRESSION=true
+CONTEXT_WINDOW_SIZE=10
+SUMMARY_THRESHOLD=20
+
+# 数据库配置
+MYSQL_URL=""
+
+# Web服务配置
+WEB_HOST="0.0.0.0"
+WEB_PORT=8000
+WEB_RELOAD=true
+ENABLE_CORS=true
